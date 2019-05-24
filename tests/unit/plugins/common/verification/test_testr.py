@@ -111,7 +111,7 @@ class TestrContextTestCase(test.TestCase):
 
         # with load_list and skip_list
         load_list = ["tests.foo", "tests.bar"]
-        skip_list = ["tests.foo"]
+        skip_list = {"tests.foo": "skip reason"}
         cfg = {"verifier": self.verifier,
                "run_args": {"load_list": load_list,
                             "skip_list": skip_list}}
@@ -131,7 +131,55 @@ class TestrContextTestCase(test.TestCase):
         # with skip_list, but without load_list
         load_list = ["tests.foo", "tests.bar"]
         self.verifier.manager.list_tests.return_value = load_list
-        skip_list = ["tests.foo"]
+        skip_list = {"tests.foo": "skip reason"}
+        cfg = {"verifier": self.verifier,
+               "run_args": {"skip_list": skip_list}}
+        ctx = testr.TestrContext(cfg)
+        mock_open = mock.mock_open()
+        with mock.patch("%s.open" % PATH, mock_open):
+            ctx.setup()
+        mock_open.assert_called_once_with(
+            mock_generate_random_path.return_value, "w")
+        handle = mock_open.return_value
+        handle.write.assert_called_once_with(load_list[1])
+        self.assertEqualCmd(["--parallel", "--load-list",
+                             mock_generate_random_path.return_value],
+                            cfg["testr_cmd"])
+        self.verifier.manager.list_tests.assert_called_once_with()
+
+    @mock.patch("%s.common_utils.generate_random_path" % PATH)
+    def test_skip_list_with_regex_positive_match(self,
+                                                 mock_generate_random_path):
+        # using a regex in skip_list
+        load_list = ["tests.foo.bar", "tests.bar"]
+        self.verifier.manager.list_tests.return_value = load_list
+        skip_list = {"^tests.foo": "skip reason"}
+        cfg = {"verifier": self.verifier,
+               "run_args": {"skip_list": skip_list}}
+        ctx = testr.TestrContext(cfg)
+        mock_open = mock.mock_open()
+        with mock.patch("%s.open" % PATH, mock_open):
+            ctx.setup()
+        mock_open.assert_called_once_with(
+            mock_generate_random_path.return_value, "w")
+        handle = mock_open.return_value
+        handle.write.assert_called_once_with(load_list[1])
+        self.assertEqualCmd(["--parallel", "--load-list",
+                             mock_generate_random_path.return_value],
+                            cfg["testr_cmd"])
+        self.verifier.manager.list_tests.assert_called_once_with()
+
+    @mock.patch("%s.common_utils.generate_random_path" % PATH)
+    def test_skip_list_with_invalid_regex(self,
+                                          mock_generate_random_path):
+        load_list = [
+            "tests.foo[e3976dea-bed9-4b14-abaf-59372de9303]",
+            "tests.bar"
+        ]
+        self.verifier.manager.list_tests.return_value = load_list
+        skip_list = {
+            "tests.foo[e3976dea-bed9-4b14-abaf-59372de9303]": "skip reason"
+        }
         cfg = {"verifier": self.verifier,
                "run_args": {"skip_list": skip_list}}
         ctx = testr.TestrContext(cfg)
