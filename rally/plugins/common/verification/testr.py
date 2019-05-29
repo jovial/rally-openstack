@@ -31,32 +31,6 @@ LOG = logging.getLogger(__name__)
 
 TEST_NAME_RE = re.compile(r"^[a-zA-Z_.0-9]+(\[[a-zA-Z-_,=0-9]*\])?$")
 
-
-def _expand_skip_list(load_list, regexps):
-    """Returns mapping of test names to the reason why the test was skipped.
-
-    The dictionary includes all tests in``load_list`` that match a key in
-    ``regexps``.
-    """
-    result = {}
-    if not regexps:
-        return result
-    for regex, reason in regexps.items():
-        try:
-            pattern = re.compile(regex)
-            for test in load_list:
-                if pattern.search(test):
-                    result[test] = reason
-        except re.error:
-            # assume regex is a test id, eg: tempest.api.compute.admin.
-            # test_flavors.FlavorsAdminTestJSON.
-            # test_create_flavor_using_string_ram
-            # [id-3b541a2e-2ac2-4b42-8b8d-ba6e22fcd4da]
-            result[regex] = reason
-            continue
-    return result
-
-
 @context.configure("testr", order=999)
 class TestrContext(context.VerifierContext):
     """Context to transform 'run_args' into CLI arguments for testr."""
@@ -91,12 +65,6 @@ class TestrContext(context.VerifierContext):
         skip_list = run_args.get("skip_list")
 
         if skip_list:
-            if not load_list:
-                load_list = self.verifier.manager.list_tests()
-            skip_list = _expand_skip_list(load_list, skip_list)
-            # update run_args so that we can access the skip reason when
-            # building the metadata
-            run_args["skip_list"] = skip_list
             load_list = set(load_list) - set(skip_list)
         if load_list:
             load_list_file = common_utils.generate_random_path()
